@@ -82,35 +82,60 @@ st.divider()
 st.subheader(f"🏁 Tahliye/Denetim Tarihi: {tahliye_tarihi.strftime('%d.%m.%Y')}")
 st.write(f"*(Toplam Mahsup Etkisi: {toplam_mahsup_gun} gün)*")
 
+# --- PDF İÇİN TÜRKÇE KARAKTER TEMİZLEME (Hata önleyici) ---
+def tr_fix(text):
+    # Standart PDF fontları Türkçe karakterlerde hata verebilir.
+    # Bu fonksiyon karakterleri güvenli karşılıklarına çevirir.
+    mapping = str.maketrans("ığüşöçİĞÜŞÖÇ", "igusocIGUSOC")
+    return str(text).translate(mapping)
+
 # --- PDF OLUŞTURMA FONKSİYONU ---
 def generate_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(190, 10, "INFAZ MUDDETNAME TASLAGI", ln=True, align="C")
-    pdf.set_font("Helvetica", size=12)
-    pdf.ln(10)
-    pdf.cell(100, 10, f"Suc Tarihi: {suc_tarihi}")
-    pdf.ln(8)
-    pdf.cell(100, 10, f"Giris Tarihi: {giris_tarihi}")
-    pdf.ln(8)
-    pdf.cell(100, 10, f"Toplam Ceza: {c_yil} Yil {c_ay} Ay {c_gun} Gun")
-    pdf.ln(8)
-    pdf.cell(100, 10, f"Infaz Orani: {oran_text}")
-    pdf.ln(15)
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(100, 10, f"Sartla Tahliye: {kosullu.strftime('%d.%m.%Y')}")
-    pdf.ln(8)
-    pdf.cell(100, 10, f"Bihakkin Tahliye: {bihakkin.strftime('%d.%m.%Y')}")
-    pdf.ln(8)
-    pdf.cell(100, 10, f"Tahliye/Denetim Baslangic: {tahliye_tarihi.strftime('%d.%m.%Y')}")
-    
-    return pdf.output()
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        
+        # Font ayarı (Standart fontlar kullanılır)
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(190, 10, "INFAZ MUDDETNAME TASLAGI", ln=True, align="C")
+        pdf.ln(10)
+        
+        pdf.set_font("Helvetica", size=12)
+        # Verileri Türkçe karakter hatasından arındırarak yazdırıyoruz
+        pdf.cell(100, 10, f"Suc Tarihi: {suc_tarihi}")
+        pdf.ln(8)
+        pdf.cell(100, 10, f"Giris Tarihi: {giris_tarihi}")
+        pdf.ln(8)
+        pdf.cell(100, 10, f"Toplam Ceza: {c_yil} Yil {c_ay} Ay {c_gun} Gun")
+        pdf.ln(8)
+        pdf.cell(100, 10, tr_fix(f"Infaz Orani: {oran_text}"))
+        
+        pdf.ln(15)
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(100, 10, f"Sartla Tahliye: {kosullu.strftime('%d.%m.%Y')}")
+        pdf.ln(8)
+        pdf.cell(100, 10, f"Bihakkin Tahliye: {bihakkin.strftime('%d.%m.%Y')}")
+        pdf.ln(8)
+        pdf.cell(100, 10, f"Tahliye/Denetim Baslangic: {tahliye_tarihi.strftime('%d.%m.%Y')}")
+        
+        # ÇIKTIYI BYTES OLARAK AL (Kritik nokta)
+        # fpdf2 kullanıyorsanız output() byte döner. 
+        # Garanti olması için bytes() içine alıyoruz.
+        pdf_bytes = pdf.output()
+        if isinstance(pdf_bytes, str): # Eğer string dönerse (eski sürümse)
+            pdf_bytes = pdf_bytes.encode('latin-1')
+            
+        return bytes(pdf_bytes)
+    except Exception as e:
+        return f"Hata oluştu: {str(e)}".encode('utf-8')
 
-# PDF İndirme Butonu
+# --- PDF İNDİRME BUTONU ---
+# Veriyi önce bir değişkene alıp sonra butona veriyoruz
+pdf_data = generate_pdf()
+
 st.download_button(
     label="📄 Müddetnameyi PDF Olarak İndir",
-    data=generate_pdf(),
+    data=pdf_data,
     file_name=f"muddetname_{datetime.now().strftime('%Y%m%d')}.pdf",
     mime="application/pdf"
 )
