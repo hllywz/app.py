@@ -17,7 +17,7 @@ TCK_MADDELERI = {
 }
 
 st.title("⚖️ İnfaz Hesaplama ve Denetim Takip Sistemi")
-st.caption("Yazı İşleri Müdürlüğü Sınav Formatı ve 2025 Düzenlemelerine Uygundur")
+st.caption("bu site taslak olarak  Halil Yavuz tarafından hazırlanmıştır, geliştirme aşamasındadır. ")
 
 # --- GİRİŞ PANELİ ---
 with st.sidebar:
