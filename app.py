@@ -3,7 +3,7 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from fpdf import FPDF
 
-st.set_page_config(page_title="Hukuk Otomasyon: İnfaz", layout="wide")
+st.set_page_config(page_title="CEZA HESAP", layout="wide")
 
 # --- TCK VE ORAN SÖZLÜĞÜ ---
 TCK_MADDELERI = {
@@ -15,7 +15,7 @@ TCK_MADDELERI = {
     "Örgütlü Suçlar": 0.666
 }
 
-st.title("⚖️  İnfaz Müddetname Sistemi PRO")
+st.title("⚖️  YAVUZ Müddetname Sistemi v.3")
 st.markdown("---")
 
 # --- GİRİŞ PANELİ ---
