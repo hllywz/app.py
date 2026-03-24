@@ -10,7 +10,7 @@ st.markdown("""
     .main { background-color: #f5f7f9; }
     .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #2e4053; color: white; }
     </style>
-    """, unsafe_allow_all=True)
+    """, unsafe_allow_html=True)
 
 st.title("⚖️ İnfaz ve Tahliye Hesaplama Sistemi")
 st.info("Excel tablonuzdaki standart hesaplama mantığına göre uyarlanmıştır.")
