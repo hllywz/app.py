@@ -1,105 +1,116 @@
 import streamlit as st
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+from fpdf import FPDF
 
-st.set_page_config(page_title="Gelişmiş İnfaz Sistemi v2", layout="wide")
+st.set_page_config(page_title="Hukuk Otomasyon: İnfaz", layout="wide")
 
-# --- TCK MADDE VE ORAN SÖZLÜĞÜ ---
-# Bu liste hukuk sistemindeki temel oranlara göre hazırlanmıştır
+# --- TCK VE ORAN SÖZLÜĞÜ ---
 TCK_MADDELERI = {
-    "Genel Suçlar (Hırsızlık, Yaralama vb.)": 0.5,           # 1/2
-    "Kasten Öldürme (TCK 81, 82)": 0.666,                  # 2/3
-    "Cinsel Dokunulmazlık (TCK 102, 103, 104, 105)": 0.75, # 3/4
-    "Uyuşturucu Ticareti (TCK 188)": 0.75,                 # 3/4
-    "Terör Suçları (3713 S.K.)": 0.75,                     # 3/4
-    "Örgütlü Suçlar": 0.666,                               # 2/3
-    "Devletin Güvenliğine Karşı Suçlar": 0.75              # 3/4
+    "Genel Suçlar (Hırsızlık, Yaralama vb.)": 0.5,
+    "Kasten Öldürme (TCK 81, 82)": 0.666,
+    "Cinsel Dokunulmazlık (TCK 102, 103, 104, 105)": 0.75,
+    "Uyuşturucu Ticareti (TCK 188)": 0.75,
+    "Terör Suçları (3713 S.K.)": 0.75,
+    "Örgütlü Suçlar": 0.666
 }
 
-st.title("⚖️ İnfaz Hesaplama ve Denetim Takip Sistemi")
-st.caption("bu site taslak olarak  Halil Yavuz tarafından hazırlanmıştır, geliştirme aşamasındadır. ")
+st.title("⚖️  İnfaz Müddetname Sistemi PRO")
+st.markdown("---")
 
 # --- GİRİŞ PANELİ ---
 with st.sidebar:
-    st.header("📋 Dosya Bilgileri")
-    suc_maddesi = st.selectbox("Suç Maddesi / Tipi", list(TCK_MADDELERI.keys()))
-    mukerrir_durumu = st.selectbox("Mükerrirlik Durumu", 
-                                  ["Yok", "1. Kez Mükerrir (1/3 İndirim)", "2. Kez Mükerrir (1/4 İndirim)"])
+    st.header("📋 Dosya Parametreleri")
+    suc_maddesi = st.selectbox("Suç Tipi", list(TCK_MADDELERI.keys()))
+    mukerrir = st.selectbox("Mükerrirlik", ["Yok", "1. Kez Mükerrir", "2. Kez Mükerrir"])
     
     st.divider()
-    suc_tarihi = st.date_input("Suç Tarihi", date(2023, 1, 1))
-    dogum_tarihi = st.date_input("Doğum Tarihi", date(1990, 1, 1))
+    suc_tarihi = st.date_input("Suç Tarihi", date(2025, 6, 5))
     giris_tarihi = st.date_input("Cezaevi Giriş Tarihi", date.today())
     
     st.divider()
-    st.write("**İlam Olunan Ceza**")
-    c_yil = st.number_input("Yıl", 0)
-    c_ay = st.number_input("Ay", 0)
-    c_gun = st.number_input("Gün", 0)
+    st.write("**İlam Cezası**")
+    y, a, g = st.columns(3)
+    c_yil = y.number_input("Yıl", 0)
+    c_ay = a.number_input("Ay", 0)
+    c_gun = g.number_input("Gün", 0)
     
     st.divider()
-    mahsup = st.number_input("Mahsup Edilecek Süre (Gün)", 0)
-    mahsup_denetim = st.number_input("Mahsup Denetim (Gün)", 0)
+    st.write("**Mahsup Edilecek Süreler (Gün)**")
+    mahsup_12_15 = st.number_input("12-15 Yaş Arası (3x)", 0)
+    mahsup_15_18 = st.number_input("15-18 Yaş Arası (2x)", 0)
+    mahsup_18_ustu = st.number_input("18+ Yaş (1x)", 0)
 
-# --- HESAPLAMA ÇEKİRDEĞİ ---
+# --- MATEMATİKSEL HESAPLAMA ---
 
-# 1. Oran Belirleme Mantığı
-# Öncelik mükerrirlik durumundadır
-if mukerrir_durumu == "1. Kez Mükerrir (1/3 İndirim)":
-    final_oran = 0.666  # 2/3 oranında yatış
-    oran_etiket = "2/3 (Mükerrir)"
-elif mukerrir_durumu == "2. Kez Mükerrir (1/4 İndirim)":
-    final_oran = 0.75   # 3/4 oranında yatış
-    oran_etiket = "3/4 (2. Kez Mükerrir)"
+# 1. Mahsup Çarpan Mantığı
+toplam_mahsup_gun = (mahsup_12_15 * 3) + (mahsup_15_18 * 2) + mahsup_18_ustu
+
+# 2. İnfaz Oranı
+if mukerrir == "1. Kez Mükerrir":
+    infaz_orani = 0.666
+    oran_text = "2/3 (Mükerrir)"
+elif mukerrir == "2. Kez Mükerrir":
+    infaz_orani = 0.75
+    oran_text = "3/4 (2. Kez Mükerrir)"
 else:
-    final_oran = TCK_MADDELERI[suc_maddesi]
-    oran_etiket = f"{'1/2' if final_oran == 0.5 else '2/3' if final_oran == 0.666 else '3/4'}"
+    infaz_orani = TCK_MADDELERI[suc_maddesi]
+    oran_text = f"{'1/2' if infaz_orani == 0.5 else '2/3' if infaz_orani == 0.666 else '3/4'}"
 
-# 2. Toplam Ceza ve Yatılacak Süre
-toplam_gun = (c_yil * 365) + (c_ay * 30) + c_gun
-yatilacak_net_gun = int(toplam_gun * final_oran) - mahsup
+# 3. Süre ve Tarih Hesaplama
+toplam_ceza_gun = (c_yil * 365) + (c_ay * 30) + c_gun
+indirimli_ceza_gun = int(toplam_ceza_gun * infaz_orani)
 
-# 3. Tarih Hesaplamaları
-bihakkin = giris_tarihi + relativedelta(years=c_yil, months=c_ay, days=c_gun) - relativedelta(days=mahsup)
-kosullu = giris_tarihi + relativedelta(days=yatilacak_net_gun)
+bihakkin = giris_tarihi + relativedelta(years=c_yil, months=c_ay, days=c_gun) - relativedelta(days=toplam_mahsup_gun)
+kosullu = giris_tarihi + relativedelta(days=indirimli_ceza_gun) - relativedelta(days=toplam_mahsup_gun)
 
-# 4. 2023 ve 2025 Özel Durumları
-yeni_duzenleme_2025 = suc_tarihi >= date(2025, 6, 4)
-eski_suc_2023 = suc_tarihi < date(2023, 7, 31)
+# 4. Denetim ve 1/10 Kuralı
+denetim_yil = 4 if suc_tarihi < date(2023, 7, 31) else 1
+min_yatis_tarihi = giris_tarihi # Varsayılan
+if suc_tarihi >= date(2025, 6, 4):
+    min_yatis_tarihi = giris_tarihi + relativedelta(days=int(indirimli_ceza_gun / 10))
 
-# --- GÖRSEL SONUÇ EKRANI ---
-col1, col2, col3 = st.columns(3)
+tahliye_tarihi = max(kosullu - relativedelta(years=denetim_yil), min_yatis_tarihi)
 
-with col1:
-    st.metric("Uygulanan İnfaz Oranı", oran_etiket)
-    st.write(f"**Toplam Ceza:** {toplam_gun} Gün")
-
-with col2:
-    st.success(f"**Şartla Tahliye:** {kosullu.strftime('%d.%m.%Y')}")
-    st.write(f"**Net Yatış:** {yatilacak_net_gun} Gün")
-
-with col3:
-    st.error(f"**Bihakkın Tahliye:** {bihakkin.strftime('%d.%m.%Y')}")
+# --- GÖRSEL SONUÇLAR ---
+c1, c2, c3 = st.columns(3)
+c1.metric("Uygulanan İnfaz Oranı", oran_text)
+c2.success(f"Şartla Tahliye: {kosullu.strftime('%d.%m.%Y')}")
+c3.error(f"Bihakkın Tahliye: {bihakkin.strftime('%d.%m.%Y')}")
 
 st.divider()
+st.subheader(f"🏁 Tahliye/Denetim Tarihi: {tahliye_tarihi.strftime('%d.%m.%Y')}")
+st.write(f"*(Toplam Mahsup Etkisi: {toplam_mahsup_gun} gün)*")
 
-# --- DENETİMLİ SERBESTLİK MANTIĞI ---
-st.subheader("🏁 Denetimli Serbestlik ve Tahliye Planı")
+# --- PDF OLUŞTURMA FONKSİYONU ---
+def generate_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(190, 10, "INFAZ MUDDETNAME TASLAGI", ln=True, align="C")
+    pdf.set_font("Helvetica", size=12)
+    pdf.ln(10)
+    pdf.cell(100, 10, f"Suc Tarihi: {suc_tarihi}")
+    pdf.ln(8)
+    pdf.cell(100, 10, f"Giris Tarihi: {giris_tarihi}")
+    pdf.ln(8)
+    pdf.cell(100, 10, f"Toplam Ceza: {c_yil} Yil {c_ay} Ay {c_gun} Gun")
+    pdf.ln(8)
+    pdf.cell(100, 10, f"Infaz Orani: {oran_text}")
+    pdf.ln(15)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(100, 10, f"Sartla Tahliye: {kosullu.strftime('%d.%m.%Y')}")
+    pdf.ln(8)
+    pdf.cell(100, 10, f"Bihakkin Tahliye: {bihakkin.strftime('%d.%m.%Y')}")
+    pdf.ln(8)
+    pdf.cell(100, 10, f"Tahliye/Denetim Baslangic: {tahliye_tarihi.strftime('%d.%m.%Y')}")
+    
+    return pdf.output()
 
-denetim_notlari = []
-if eski_suc_2023:
-    denetim_yil = 4 # 1+3 kuralı
-    denetim_tarihi = kosullu - relativedelta(years=4)
-    denetim_notlari.append("📢 31/07/2023 öncesi suç: 1+3 yıl denetim hakkı mevcuttur (1 ay kapalı - 3 ay açık şartıyla).")
-elif yeni_duzenleme_2025:
-    on_birde_bir = int(yatilacak_net_gun / 10)
-    denetim_tarihi = giris_tarihi + relativedelta(days=on_birde_bir)
-    denetim_notlari.append(f"📢 2025 Düzenlemesi: İnfazın 1/10'u ({on_birde_bir} gün) bitince denetim başlar.")
-else:
-    denetim_tarihi = kosullu - relativedelta(years=1) - relativedelta(days=mahsup_denetim)
-    denetim_notlari.append("📢 Standart denetim süresi (1 yıl) uygulanmıştır.")
-
-st.info(f"📅 **Tahmini Denetim Başlangıç Tarihi:** {denetim_tarihi.strftime('%d.%m.%Y')}")
-
-for not_ in denetim_notlari:
-    st.warning(not_)
+# PDF İndirme Butonu
+st.download_button(
+    label="📄 Müddetnameyi PDF Olarak İndir",
+    data=generate_pdf(),
+    file_name=f"muddetname_{datetime.now().strftime('%Y%m%d')}.pdf",
+    mime="application/pdf"
+)
